@@ -1,0 +1,22 @@
+{
+  "name": "mcp-apple-notes",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && tsc-alias",
+    "start": "node --require tsconfig-paths/register build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.4.1",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsc-alias": "^1.8.10",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.0.0"
+  },
+  "volta": {
+    "node": "22.13.1"
+  }
+}
