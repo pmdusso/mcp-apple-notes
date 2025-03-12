@@ -2,6 +2,10 @@
 
 **Apple Notes MCP Server** is a Model Context Protocol server that enables seamless interaction with Apple Notes through natural language. Create, search, and retrieve notes effortlessly using Claude or other AI assistants! 🎉
 
+<a href="https://glama.ai/mcp/servers/ayr26szokg">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/ayr26szokg/badge" alt="Apple Notes Server MCP server" />
+</a>
+
 ## 🎯 Features
 
 - **Create Notes:** Quickly create new notes with titles, content, and tags 📝
