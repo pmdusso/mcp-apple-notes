@@ -13,11 +13,42 @@ const escapeAppleScriptString = (str: string): string => {
 };
 
 /**
+ * Sanitizes text for safe HTML insertion
+ * Escapes HTML special characters to prevent XSS and rendering issues
+ */
+const sanitizeForHTML = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+/**
+ * Sanitizes text for insertion into HTML within AppleScript
+ * Escapes special characters but keeps quotes compatible with AppleScript
+ */
+const sanitizeForAppleScriptHTML = (text: string): string => {
+  if (!text) return '';
+  // Order matters: escape backslashes first, then quotes
+  return text
+    .replace(/\\/g, '\\\\')    // Escape backslashes first
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&#8220;')  // Use Unicode left double quotation mark
+    .replace(/'/g, '&#39;');
+};
+
+/**
  * Detects if HTML contains nested lists
  */
 const hasNestedLists = (html: string): boolean => {
-  // Check for <ul> or <ol> inside <li> tags
-  return /<li[^>]*>[\s\S]*?<(?:ul|ol)[\s>]/i.test(html);
+  // Using dotAll flag (s) for better performance with multiline HTML
+  // The pattern matches <li> tags that contain nested <ul> or <ol> tags
+  return /<li[^>]*>.*?<(?:ul|ol)[\s>]/is.test(html);
 };
 
 /**
@@ -84,7 +115,10 @@ const convertNestedListsToDivs = (html: string): string => {
       // Check if this item has a nested list
       if (/<(?:ul|ol)[\s>]/i.test(itemContent)) {
         // Extract main text (before nested list)
-        const mainText = itemContent.replace(/<(?:ul|ol)[\s\S]*$/i, '').trim();
+        // First remove the nested list part, then strip any remaining HTML tags
+        const rawMainText = itemContent.replace(/<(?:ul|ol)[\s\S]*$/i, '').trim();
+        // Remove any HTML tags from the main text to get plain text
+        const mainText = rawMainText.replace(/<[^>]*>/g, '').trim();
 
         // Extract nested items
         const nestedItems: string[] = [];
@@ -94,7 +128,9 @@ const convertNestedListsToDivs = (html: string): string => {
           const nestedContent = nestedListMatch[1];
           const nestedLis = nestedContent.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
           nestedLis.forEach((li: string) => {
-            const content = li.replace(/<\/?li[^>]*>/gi, '').trim();
+            // Extract content and remove HTML tags to get plain text
+            const rawContent = li.replace(/<\/?li[^>]*>/gi, '').trim();
+            const content = rawContent.replace(/<[^>]*>/g, '').trim();
             if (content) {
               nestedItems.push(content);
             }
@@ -102,16 +138,18 @@ const convertNestedListsToDivs = (html: string): string => {
         }
 
         // Build formatted output
-        converted += `<div><b><font color=\\"#0066CC\\">${mainItemCounter}. ${mainText}</font></b></div>`;
+        // Use AppleScript-specific sanitization for nested lists
+        converted += `<div><b><font color=\\"#0066CC\\">${mainItemCounter}. ${sanitizeForAppleScriptHTML(mainText)}</font></b></div>`;
         nestedItems.forEach(subitem => {
-          converted += `<div>&nbsp;&nbsp;&nbsp;&nbsp;• ${subitem}</div>`;
+          // Use AppleScript-specific sanitization for nested lists
+          converted += `<div>&nbsp;&nbsp;&nbsp;&nbsp;• ${sanitizeForAppleScriptHTML(subitem)}</div>`;
         });
 
         // Add space between main items
         converted += '<div><br></div>';
       } else {
-        // Simple item without nesting
-        converted += `<div><b>${mainItemCounter}. ${itemContent.trim()}</b></div>`;
+        // Simple item without nesting - use AppleScript-specific sanitization
+        converted += `<div><b>${mainItemCounter}. ${sanitizeForAppleScriptHTML(itemContent.trim())}</b></div>`;
       }
 
       currentPos = liEnd;
@@ -153,8 +191,13 @@ const formatNoteContent = (content: string): string => {
       formatted = convertNestedListsToDivs(formatted);
     }
 
-    // For other newlines outside of lists, convert to <br>
-    // But be careful not to add <br> inside HTML tags
+    // Convert newlines to <br> tags, but only for newlines that are NOT inside HTML tags
+    // Regex explanation: \n(?![^<]*>)
+    // - \n: Match a newline character
+    // - (?!...): Negative lookahead - only match if NOT followed by...
+    // - [^<]*: Any number of non-'<' characters
+    // - >: Followed by a closing '>'
+    // This ensures we don't add <br> inside HTML tag attributes or between tag delimiters
     formatted = formatted.replace(/\n(?![^<]*>)/g, '<br>');
   } else {
     // For plain text, simply convert newlines to HTML line breaks
