@@ -2,16 +2,31 @@ import type { Note } from '@/types.js';
 import { runAppleScript } from '@/utils/applescript.js';
 
 /**
- * Escapes string for safe use in AppleScript
+ * Escapes string for safe use in AppleScript titles
  */
 const escapeAppleScriptString = (str: string): string => {
   if (!str) return '';
   return str
     .replace(/\\/g, '\\\\')   // Escape backslashes first
     .replace(/"/g, '\\"')      // Escape double quotes
-    .replace(/\n/g, '\\n')     // Escape newlines
-    .replace(/\r/g, '\\r')     // Escape carriage returns
-    .replace(/\t/g, '\\t');    // Escape tabs
+    .replace(/\r/g, '');       // Remove carriage returns
+};
+
+/**
+ * Formats content for Apple Notes with proper line breaks
+ * Apple Notes accepts HTML formatting in the body
+ */
+const formatNoteContent = (content: string): string => {
+  if (!content) return '';
+
+  // First escape quotes for AppleScript
+  let formatted = content
+    .replace(/\\/g, '\\\\')     // Escape backslashes first
+    .replace(/"/g, '\\"')        // Escape double quotes
+    .replace(/\n/g, '<br>');     // Convert newlines to HTML line breaks
+
+  // Wrap in HTML for better formatting
+  return `<html><body>${formatted}</body></html>`;
 };
 
 /**
@@ -44,11 +59,17 @@ end tell
     const result = runAppleScript(testScript);
 
     if (result.success) {
-      console.log('✅ Using iCloud account');
+      // Use stderr for logging in MCP context (stdout is for JSON-RPC)
+      if (process.stderr) {
+        process.stderr.write('✅ Using iCloud account\n');
+      }
       return this.ICLOUD_ACCOUNT;
     }
 
-    console.warn('⚠️  iCloud not available, using default account');
+    // Use stderr for logging in MCP context
+    if (process.stderr) {
+      process.stderr.write('⚠️  iCloud not available, using default account\n');
+    }
     return null;
   }
 
@@ -89,14 +110,17 @@ end tell
    */
   createNote(title: string, content: string, tags: string[] = []): Note | null {
     const escapedTitle = escapeAppleScriptString(title);
-    const escapedContent = escapeAppleScriptString(content);
+    const escapedContent = formatNoteContent(content);
 
     const command = `make new note with properties {name:"${escapedTitle}", body:"${escapedContent}"}`;
     const script = this.buildScript(command);
     const result = runAppleScript(script);
 
     if (!result.success) {
-      console.error('Failed to create note:', result.error);
+      // Use stderr for error logging in MCP context
+      if (process.stderr) {
+        process.stderr.write(`Failed to create note: ${result.error}\n`);
+      }
       return null;
     }
 
@@ -123,7 +147,10 @@ end tell
     const result = runAppleScript(script);
 
     if (!result.success) {
-      console.error('Failed to search notes:', result.error);
+      // Use stderr for error logging in MCP context
+      if (process.stderr) {
+        process.stderr.write(`Failed to search notes: ${result.error}\n`);
+      }
       return [];
     }
 
@@ -155,7 +182,10 @@ end tell
     const result = runAppleScript(script);
 
     if (!result.success) {
-      console.error('Failed to get note content:', result.error);
+      // Use stderr for error logging in MCP context
+      if (process.stderr) {
+        process.stderr.write(`Failed to get note content: ${result.error}\n`);
+      }
       return '';
     }
 

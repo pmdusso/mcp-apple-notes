@@ -9,18 +9,24 @@ let notesManager: AppleNotesManager;
 
 try {
   notesManager = new AppleNotesManager();
-  console.log('✅ Apple Notes MCP Server initialized successfully');
-  console.log(`📝 Using account: ${notesManager.getCurrentAccount() || 'default'}`);
+  // Use stderr for logging in MCP context (stdout is reserved for JSON-RPC)
+  if (process.stderr) {
+    process.stderr.write('✅ Apple Notes MCP Server initialized successfully\n');
+    process.stderr.write(`📝 Using account: ${notesManager.getCurrentAccount() || 'default'}\n`);
+  }
 } catch (error) {
-  console.error('❌ Failed to initialize Apple Notes:', error);
-  console.error('\n🔧 Troubleshooting:');
-  console.error('1. Ensure Apple Notes app is installed');
-  console.error('2. Configure at least one account in Notes');
-  console.error('3. Grant permission when prompted');
-  console.error('4. Check System Settings > Privacy & Security > Automation');
-  console.error('   - Look for Terminal.app or Claude.app');
-  console.error('   - Enable access to Notes.app');
-  console.error('\n📖 For more help: https://github.com/punkpeye/mcp-apple-notes#troubleshooting');
+  // Use stderr for error messages in MCP context
+  if (process.stderr) {
+    process.stderr.write(`❌ Failed to initialize Apple Notes: ${error}\n`);
+    process.stderr.write('\n🔧 Troubleshooting:\n');
+    process.stderr.write('1. Ensure Apple Notes app is installed\n');
+    process.stderr.write('2. Configure at least one account in Notes\n');
+    process.stderr.write('3. Grant permission when prompted\n');
+    process.stderr.write('4. Check System Settings > Privacy & Security > Automation\n');
+    process.stderr.write('   - Look for Terminal.app or Claude.app\n');
+    process.stderr.write('   - Enable access to Notes.app\n');
+    process.stderr.write('\n📖 For more help: https://github.com/punkpeye/mcp-apple-notes#troubleshooting\n');
+  }
   process.exit(1);
 }
 

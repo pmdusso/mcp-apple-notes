@@ -35,9 +35,6 @@ export function runAppleScript(script: string): AppleScriptResult {
 
     const command = `osascript ${eFlags}`;
 
-    // Log for debugging (can be removed in production)
-    console.debug('Executing AppleScript command');
-
     // Execute the command
     const output = execSync(command, {
       encoding: 'utf8',
@@ -54,11 +51,10 @@ export function runAppleScript(script: string): AppleScriptResult {
     const stderr = error.stderr?.toString() || '';
     const errorMessage = stderr || error.message || 'Unknown error';
 
-    console.error('AppleScript execution failed:', {
-      message: error.message,
-      stderr: stderr,
-      code: error.code
-    });
+    // Use stderr for debugging in MCP context (stdout is for JSON-RPC)
+    if (process.stderr) {
+      process.stderr.write(`AppleScript execution failed: ${errorMessage}\n`);
+    }
 
     return {
       success: false,
