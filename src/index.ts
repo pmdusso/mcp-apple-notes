@@ -4,15 +4,32 @@ import { z } from "zod";
 import { AppleNotesManager } from "@/services/appleNotesManager.js";
 import type { CreateNoteParams, SearchParams, GetNoteParams } from "@/types.js";
 
+// Initialize notes manager with error handling
+let notesManager: AppleNotesManager;
+
+try {
+  notesManager = new AppleNotesManager();
+  console.log('✅ Apple Notes MCP Server initialized successfully');
+  console.log(`📝 Using account: ${notesManager.getCurrentAccount() || 'default'}`);
+} catch (error) {
+  console.error('❌ Failed to initialize Apple Notes:', error);
+  console.error('\n🔧 Troubleshooting:');
+  console.error('1. Ensure Apple Notes app is installed');
+  console.error('2. Configure at least one account in Notes');
+  console.error('3. Grant permission when prompted');
+  console.error('4. Check System Settings > Privacy & Security > Automation');
+  console.error('   - Look for Terminal.app or Claude.app');
+  console.error('   - Enable access to Notes.app');
+  console.error('\n📖 For more help: https://github.com/punkpeye/mcp-apple-notes#troubleshooting');
+  process.exit(1);
+}
+
 // Initialize the MCP server
 const server = new McpServer({
   name: "apple-notes",
-  version: "1.0.0",
+  version: "1.0.1",
   description: "MCP server for interacting with Apple Notes"
 });
-
-// Initialize the notes manager
-const notesManager = new AppleNotesManager();
 
 // Define tool schemas
 const createNoteSchema = {

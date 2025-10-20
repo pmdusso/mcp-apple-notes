@@ -2,28 +2,83 @@ import type { Note } from '@/types.js';
 import { runAppleScript } from '@/utils/applescript.js';
 
 /**
- * Formats note content for AppleScript compatibility
- * @param content - The raw note content
- * @returns Formatted content with proper line breaks
+ * Escapes string for safe use in AppleScript
  */
-const formatContent = (content: string): string => {
-  if (!content) return '';
+const escapeAppleScriptString = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/\\/g, '\\\\')   // Escape backslashes first
+    .replace(/"/g, '\\"')      // Escape double quotes
+    .replace(/\n/g, '\\n')     // Escape newlines
+    .replace(/\r/g, '\\r')     // Escape carriage returns
+    .replace(/\t/g, '\\t');    // Escape tabs
+};
 
-  // Define replacement patterns for text formatting
-  const replacements: [string, RegExp][] = [
-    ['\n', /\n/g],
-    ['\t', /\t/g],
-    ['"', /"/g], // Escape quotes for AppleScript
-  ];
-
-  return replacements.reduce(
-    (text, [char, pattern]) => text.replace(pattern, char === '"' ? '\\"' : '<br>'),
-    content
-  );
+/**
+ * Generates unique ID for notes
+ */
+const generateNoteId = (): string => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
 export class AppleNotesManager {
   private readonly ICLOUD_ACCOUNT = "iCloud";
+  private accountName: string | null = null;
+
+  constructor() {
+    this.accountName = this.detectAvailableAccount();
+  }
+
+  /**
+   * Detects which account to use (iCloud or default)
+   */
+  private detectAvailableAccount(): string | null {
+    const testScript = `
+tell application "Notes"
+  tell account "${this.ICLOUD_ACCOUNT}"
+    return "OK"
+  end tell
+end tell
+    `.trim();
+
+    const result = runAppleScript(testScript);
+
+    if (result.success) {
+      console.log('✅ Using iCloud account');
+      return this.ICLOUD_ACCOUNT;
+    }
+
+    console.warn('⚠️  iCloud not available, using default account');
+    return null;
+  }
+
+  /**
+   * Builds AppleScript with or without account specification
+   */
+  private buildScript(command: string): string {
+    if (this.accountName) {
+      return `
+tell application "Notes"
+  tell account "${this.accountName}"
+    ${command}
+  end tell
+end tell
+      `.trim();
+    }
+
+    return `
+tell application "Notes"
+  ${command}
+end tell
+    `.trim();
+  }
+
+  /**
+   * Gets the name of the account being used
+   */
+  getCurrentAccount(): string | null {
+    return this.accountName;
+  }
 
   /**
    * Creates a new note in Apple Notes
@@ -33,23 +88,20 @@ export class AppleNotesManager {
    * @returns The created note object or null if creation fails
    */
   createNote(title: string, content: string, tags: string[] = []): Note | null {
-    const formattedContent = formatContent(content);
-    const script = `
-      tell application "Notes"
-        tell account "${this.ICLOUD_ACCOUNT}"
-          make new note with properties {name:"${title}", body:"${formattedContent}"}
-        end tell
-      end tell
-    `;
+    const escapedTitle = escapeAppleScriptString(title);
+    const escapedContent = escapeAppleScriptString(content);
 
+    const command = `make new note with properties {name:"${escapedTitle}", body:"${escapedContent}"}`;
+    const script = this.buildScript(command);
     const result = runAppleScript(script);
+
     if (!result.success) {
       console.error('Failed to create note:', result.error);
       return null;
     }
 
     return {
-      id: Date.now().toString(),
+      id: generateNoteId(),
       title,
       content,
       tags,
@@ -64,27 +116,25 @@ export class AppleNotesManager {
    * @returns Array of matching notes
    */
   searchNotes(query: string): Note[] {
-    const sanitizedQuery = query.replace(/"/g, '\\"');
-    const script = `
-      tell application "Notes"
-        tell account "${this.ICLOUD_ACCOUNT}"
-          get name of notes where name contains "${sanitizedQuery}"
-        end tell
-      end tell
-    `;
+    const escapedQuery = escapeAppleScriptString(query);
 
+    const command = `get name of notes where name contains "${escapedQuery}"`;
+    const script = this.buildScript(command);
     const result = runAppleScript(script);
+
     if (!result.success) {
       console.error('Failed to search notes:', result.error);
       return [];
     }
 
+    // AppleScript returns comma-separated list with spaces
     return result.output
-      .split(',')
+      .split(', ')
+      .map(title => title.trim())
       .filter(Boolean)
       .map(title => ({
-        id: Date.now().toString(),
-        title: title.trim(),
+        id: generateNoteId(),
+        title,
         content: '',
         tags: [],
         created: new Date(),
@@ -98,16 +148,12 @@ export class AppleNotesManager {
    * @returns The note content or empty string if not found
    */
   getNoteContent(title: string): string {
-    const sanitizedTitle = title.replace(/"/g, '\\"');
-    const script = `
-      tell application "Notes"
-        tell account "${this.ICLOUD_ACCOUNT}"
-          get body of note "${sanitizedTitle}"
-        end tell
-      end tell
-    `;
+    const escapedTitle = escapeAppleScriptString(title);
 
+    const command = `get body of note "${escapedTitle}"`;
+    const script = this.buildScript(command);
     const result = runAppleScript(script);
+
     if (!result.success) {
       console.error('Failed to get note content:', result.error);
       return '';
