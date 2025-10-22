@@ -1,0 +1,41 @@
+/**
+ * Example E2E Test (rename to .test.ts to enable)
+ *
+ * WARNING: This will create real notes in Apple Notes!
+ */
+
+import { AppleNotesManager } from '@/services/appleNotesManager.js';
+import { setupTestEnvironment } from './setup.js';
+
+describe('E2E: Notes Workflow', () => {
+  let manager: AppleNotesManager;
+  let cleanup: () => Promise<void>;
+
+  beforeAll(async () => {
+    cleanup = await setupTestEnvironment();
+    manager = new AppleNotesManager();
+  });
+
+  afterAll(async () => {
+    await cleanup();
+  });
+
+  test.skip('should complete full note lifecycle', async () => {
+    // 1. Create a test note
+    const created = await manager.createNote(
+      'TEST_E2E_Note',
+      'This is an E2E test note'
+    );
+    expect(created).toBe(true);
+
+    // 2. Search for the note
+    const results = await manager.searchNotes('TEST_E2E');
+    expect(results).toContain('TEST_E2E_Note');
+
+    // 3. Get note content
+    const content = await manager.getNoteContent('TEST_E2E_Note');
+    expect(content).toContain('E2E test note');
+
+    // Note: Cleanup happens in afterAll
+  });
+});
